@@ -1,0 +1,40 @@
+version: "3.8"
+
+services:
+  hermes-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hermes-agent
+    platform: linux/arm64
+    restart: unless-stopped
+
+    # Mode: "gateway" (default), "setup", "cli", "shell", "sleep"
+    # Gunakan "sleep" untuk pertama kali, lalu jalankan hermes setup via terminal
+    command: ["sleep"]
+
+    ports:
+      - "8642:8642"   # API Server
+      - "8644:8644"   # Webhook Server
+
+    volumes:
+      # Persistent data — config, memory, sessions, skills, dll
+      - hermes-data:/root/.hermes
+
+    environment:
+      - HERMES_HOME=/root/.hermes
+      - TZ=Asia/Jakarta
+      # ──────────────────────────────────────────
+      # Semua konfigurasi di bawah ini OPSIONAL.
+      # Disarankan pakai "hermes setup" via terminal
+      # untuk konfigurasi interaktif.
+      # ──────────────────────────────────────────
+      # - OPENROUTER_API_KEY=
+      # - TELEGRAM_BOT_TOKEN=
+      # - TELEGRAM_ALLOWED_USERS=
+      # - DISCORD_BOT_TOKEN=
+      # - DISCORD_ALLOWED_USERS=
+
+volumes:
+  hermes-data:
+    driver: local
