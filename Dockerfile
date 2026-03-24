@@ -101,6 +101,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     ripgrep \
     vim \
+    docker.io \
     # Playwright Chromium runtime deps
     libnss3 \
     libatk1.0-0 \

@@ -20,6 +20,10 @@ services:
     volumes:
       # Persistent data — config, memory, sessions, skills, dll
       - hermes-data:/root/.hermes
+      # Uncomment baris di bawah ini jika ingin menggunakan fitur Docker-in-Docker
+      # agar Hermes Agent menjalankan perintah terminal secara terisolasi.
+      # (PENTING: Memerlukan fitur bind-mount socket docker di server)
+      # - /var/run/docker.sock:/var/run/docker.sock
 
     environment:
       - HERMES_HOME=/root/.hermes

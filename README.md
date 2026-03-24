@@ -77,6 +77,30 @@ hermes gateway setup    # Setup messaging platform
 hermes gateway          # Start gateway
 ```
 
+## 🌟 Konfigurasi Lanjutan (Advanced Setup)
+
+Berdasarkan *Best Practices* dari dokumentasi resmi Hermes, Anda bisa mengaktifkan beberapa fitur tingkat lanjut untuk keamanan dan efisiensi resource:
+
+### 1. Keamanan Terminal: Eksekusi Terisolasi (Docker-in-Docker)
+Secara bawaan, agen cerdas ini akan mengeksekusi perintah terminal (seperti `pip install`, `ls`, dll.) **langsung di dalam** container utamanya. Ini agak berisiko jika ia tak sengaja merusak sistemnya sendiri saat bertingkah.
+Untuk mencegah hal tersebut, Anda bisa memaksa agen agar menjalankan *terminal commands* di sebuah sub-container terpisah:
+1. Buka konfigurasi **Volumes** di aplikasi EasyPanel Anda.
+2. Tambahkan volume tipe *Bind Mount*:
+   - Source path (Host): `/var/run/docker.sock`
+   - Destination path (Container): `/var/run/docker.sock`
+   *(Atau cukup hapus tanda pagar `#` pada baris /var/run/docker.sock di file `docker-compose.yml` sebelum mengupload ke Github)*
+3. Tambahkan di menu **Environment**: `TERMINAL_ENV=docker`
+4. Deploy ulang. Sekarang setiap perintah berbahaya akan diisolasi Hermes di container mini sementaranya!
+
+### 2. Mematikan Headless Browser Lokal (Penghemat RAM)
+Jika RAM server VPS Anda terbatas, tugas mendownload dan *scraping web browser* Playwright akan sangat memberatkan. 
+Hermes mendukung delegasi penjelajahan internet via *Cloud API* ke **Browserbase**:
+1. Buat akun di browserbase.com untuk mendapatkan API.
+2. Tambahkan keys ini ke **Environment** pada EasyPanel:
+   - `BROWSERBASE_API_KEY=key_anda_di_sini`
+   - `BROWSERBASE_PROJECT_ID=id_anda_di_sini`
+Kini proses baca dokumen/web akan berjalan sangat ringan di server Anda!
+
 ## 🔄 Mode Container
 
 Entrypoint mendukung beberapa mode via Docker command:
