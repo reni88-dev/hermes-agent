@@ -1,4 +1,23 @@
-version: "3.8"
+#
+# docker-compose.yml for Hermes Agent v0.15.2
+#
+# Usage:
+#   HERMES_UID=$(id -u) HERMES_GID=$(id -g) docker compose up -d
+#
+# Set HERMES_UID / HERMES_GID to the host user that owns the data volume
+# so files created inside the container stay readable/writable on the host.
+# The s6-overlay cont-init.d hook remaps the internal `hermes` user to
+# these values via usermod/groupmod.
+#
+# Security notes:
+#   - The dashboard binds to 127.0.0.1 by default. It stores API keys;
+#     exposing it on LAN without auth is unsafe. Use a reverse proxy
+#     with authentication for remote access.
+#   - If you override entrypoint, keep `/init` as the first command.
+#     `/init` is s6-overlay's PID 1 — it runs cont-init.d scripts and
+#     sets up the supervision tree. Bypassing it skips all setup.
+#   - The gateway API server is off unless you set API_SERVER_KEY.
+#
 
 services:
   hermes-agent:
@@ -6,7 +25,6 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: hermes-agent
-    platform: linux/arm64
     restart: unless-stopped
 
     # Mode: "gateway" (default), "setup", "cli", "shell", "sleep"
@@ -14,20 +32,24 @@ services:
     command: ["sleep"]
 
     ports:
-      - "8642:8642"   # API Server
-      - "8644:8644"   # Webhook Server
+      - "8642:8642"   # API Server + Dashboard + Webhook (consolidated)
 
     volumes:
-      # Persistent data — config, memory, sessions, skills, dll
-      - hermes-data:/root/.hermes
+      # Persistent data — config, memory, sessions, skills, profiles, dll
+      # PENTING: path berubah dari /root/.hermes ke /opt/data di v0.15.2
+      - hermes-data:/opt/data
       # Uncomment baris di bawah ini jika ingin menggunakan fitur Docker-in-Docker
       # agar Hermes Agent menjalankan perintah terminal secara terisolasi.
       # (PENTING: Memerlukan fitur bind-mount socket docker di server)
       # - /var/run/docker.sock:/var/run/docker.sock
 
     environment:
-      - HERMES_HOME=/root/.hermes
+      - HERMES_HOME=/opt/data
       - TZ=Asia/Jakarta
+      # UID/GID remapping — sesuaikan dengan host user Anda
+      # Digunakan oleh s6-overlay untuk fix ownership volume
+      # - HERMES_UID=1000
+      # - HERMES_GID=1000
       # ──────────────────────────────────────────
       # Semua konfigurasi di bawah ini OPSIONAL.
       # Disarankan pakai "hermes setup" via terminal
