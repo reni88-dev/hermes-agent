@@ -117,8 +117,14 @@ RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && 
 # ---------------------------------------------------
 WORKDIR /opt/hermes
 
-RUN git clone --depth 1 https://github.com/NousResearch/hermes-agent.git . \
-    && git submodule update --init mini-swe-agent
+COPY . .
+
+# mini-swe-agent: clone directly since .git is excluded by .dockerignore
+# (git submodule update won't work without .git metadata)
+RUN if [ ! -f mini-swe-agent/pyproject.toml ]; then \
+        rm -rf mini-swe-agent && \
+        git clone --depth 1 https://github.com/SWE-agent/mini-swe-agent.git mini-swe-agent; \
+    fi
 
 # Layer-cached dependency install: copy manifests first so npm install
 # + Playwright are cached unless lockfiles themselves change.
