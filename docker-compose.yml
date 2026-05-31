@@ -1,86 +1,27 @@
 # =============================================================================
-# docker-compose.yml — Hermes Agent for Easypanel
+# docker-compose.yml — Hermes Agent (untuk testing lokal)
 # =============================================================================
+# Di Easypanel, gunakan Dockerfile langsung.
+# File ini untuk testing lokal sebelum deploy.
 #
 # Usage:
-#   1. Copy .env.example to .env and fill in your API keys
-#   2. Run initial setup:
-#      docker compose run --rm hermes setup
-#   3. Start in gateway mode:
-#      docker compose up -d
-#
-# Easypanel:
-#   Import this repo and Easypanel will auto-detect docker-compose.yml.
-#   Configure environment variables in Easypanel's UI instead of .env file.
-#
-# Security notes:
-#   - Dashboard binds to 0.0.0.0 inside the container so Easypanel's
-#     reverse proxy can reach it. Easypanel handles SSL termination.
-#   - Set API_SERVER_KEY to a strong random value (min 8 chars).
-#   - Never expose ports directly without a reverse proxy on production.
+#   docker compose up -d
+#   docker compose exec hermes hermes setup
+#   docker compose exec hermes hermes gateway run
 # =============================================================================
 
 services:
   hermes:
     build: .
-    image: hermes-agent
     container_name: hermes
     restart: unless-stopped
 
-    # --- Environment ---
-    env_file:
-      - .env
-
     environment:
-      # Timezone
       - TZ=Asia/Jakarta
 
-      # Dashboard disabled — using Telegram channel only.
-      # Uncomment to enable:
-      # - HERMES_DASHBOARD=1
-      # - HERMES_DASHBOARD_HOST=0.0.0.0
-      # - HERMES_DASHBOARD_PORT=9119
-      # - HERMES_DASHBOARD_INSECURE=1
-
-      # API server (optional — uncomment if you need health endpoint or API access)
-      # - API_SERVER_ENABLED=true
-      # - API_SERVER_HOST=0.0.0.0
-      # - API_SERVER_KEY is set in .env
-      # - API_SERVER_CORS_ORIGINS=*
-
-    # --- Ports (optional) ---
-    # Telegram gateway runs outbound (no inbound ports needed).
-    # Uncomment if you enable the dashboard or API server.
-    # ports:
-    #   - "8642:8642"   # Gateway API server
-    #   - "9119:9119"   # Web dashboard
-
-    # --- Persistent data ---
-    # All Hermes state: config, API keys, sessions, skills, memories
     volumes:
       - hermes-data:/opt/data
 
-    # --- Health check ---
-    # Uses s6-svstat to verify the gateway process is running.
-    # If API server is enabled, can also use: curl -sf http://localhost:8642/health
-    healthcheck:
-      test: /command/s6-svstat /run/service/main-hermes 2>/dev/null | grep -q "true" || exit 1
-      interval: 30s
-      timeout: 10s
-      start_period: 60s
-      retries: 3
-
-    # --- Resource limits (optional, adjust as needed) ---
-    # deploy:
-    #   resources:
-    #     limits:
-    #       memory: 2G
-    #       cpus: '2.0'
-    #     reservations:
-    #       memory: 512M
-    #       cpus: '0.5'
-
-# Named volume for persistent data
 volumes:
   hermes-data:
     driver: local
