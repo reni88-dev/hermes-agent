@@ -14,6 +14,12 @@ FROM ghcr.io/astral-sh/uv:0.11.6-python3.13-trixie AS uv_source
 # so we stay on a supported LTS. Bookworm-slim ensures glibc compat.
 FROM node:22-bookworm-slim AS node_source
 
+# Clone upstream hermes-agent source in an isolated stage.
+# This avoids "directory not empty" errors and keeps .git out of the final image.
+FROM debian:13.4 AS hermes_source
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN git clone --depth 1 https://github.com/NousResearch/hermes-agent.git /src
+
 # ---------- Main image ----------
 FROM debian:13.4
 
@@ -117,14 +123,8 @@ RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && 
 # ---------------------------------------------------
 WORKDIR /opt/hermes
 
-# Clone upstream hermes-agent source code.
-# We use git init + fetch + reset instead of "git clone . " because
-# git clone refuses to work in a non-empty directory.
-RUN git init \
-    && git remote add origin https://github.com/NousResearch/hermes-agent.git \
-    && git fetch --depth 1 origin main \
-    && git checkout FETCH_HEAD -- . \
-    && git submodule update --init mini-swe-agent
+# Copy upstream source from the hermes_source build stage
+COPY --from=hermes_source /src/ ./
 
 # Layer-cached dependency install: copy manifests first so npm install
 # + Playwright are cached unless lockfiles themselves change.
@@ -146,7 +146,7 @@ ENV VIRTUAL_ENV=/opt/hermes/venv \
 # Install main package with all extras; fallback to base if extras fail
 RUN uv pip install -e ".[all]" || uv pip install -e "."
 
-# Install mini-swe-agent submodule
+# Install mini-swe-agent if present in upstream source
 RUN if [ -f mini-swe-agent/pyproject.toml ]; then \
         uv pip install -e ./mini-swe-agent; \
     fi
