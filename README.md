@@ -45,17 +45,14 @@ hermes setup
 
 ### 5. Jalankan Gateway
 
-Setelah setup selesai, jalankan gateway:
+Setelah setup selesai, **restart container** di Easypanel.
+Container akan otomatis mendeteksi config dan menjalankan gateway.
 
-```bash
-hermes gateway run
-```
-
-Atau untuk menjalankan di background:
-
-```bash
-nohup hermes gateway run > /opt/data/gateway.log 2>&1 &
-```
+> **Cara kerja auto-start:**
+> - Entrypoint mengecek apakah `/opt/data/config.yaml` ada
+> - Jika ada → `hermes gateway run` otomatis dijalankan
+> - Jika belum → container idle, menunggu `hermes setup`
+> - Setiap container restart → gateway otomatis jalan kembali
 
 ---
 

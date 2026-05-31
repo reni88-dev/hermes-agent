@@ -27,9 +27,12 @@ ENV PATH="/opt/hermes/bin:/opt/hermes/.venv/bin:${PATH}"
 VOLUME ["/opt/data"]
 WORKDIR /opt/hermes
 
-# --- Bypass s6-overlay ---
-# Easypanel mengelola lifecycle container sendiri, tidak perlu s6-overlay.
-# Container tetap hidup (idle) sampai user menjalankan 'hermes setup'
-# via terminal Easypanel.
+# --- Entrypoint ---
+# Logika: jika config.yaml ada (setup sudah dijalankan) → start gateway.
+# Jika belum → container idle, tunggu 'hermes setup' via terminal.
+# Setelah setup selesai, restart container → gateway otomatis jalan.
+COPY entrypoint.sh /opt/hermes/entrypoint.sh
+RUN chmod +x /opt/hermes/entrypoint.sh
+
 ENTRYPOINT []
-CMD ["tail", "-f", "/dev/null"]
+CMD ["/opt/hermes/entrypoint.sh"]
