@@ -23,9 +23,13 @@ ENV PYTHONUNBUFFERED=1
 # Pastikan hermes binary dapat diakses dari PATH
 ENV PATH="/opt/hermes/bin:/opt/hermes/.venv/bin:${PATH}"
 
+# --- Text editors ---
+RUN apt-get update && apt-get install -y --no-install-recommends vim nano \
+    && rm -rf /var/lib/apt/lists/*
+
 # --- Persistent data ---
 VOLUME ["/opt/data"]
-WORKDIR /opt/hermes
+WORKDIR /opt/data
 
 # --- Entrypoint ---
 # Logika: jika config.yaml ada (setup sudah dijalankan) → start gateway.
