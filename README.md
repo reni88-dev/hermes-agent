@@ -1,275 +1,221 @@
-# Hermes Agent v0.15.2 — Docker Deployment untuk EasyPanel
+# Hermes Agent — Easypanel Deployment (ARM64)
 
-Deploy [Hermes Agent](https://github.com/NousResearch/hermes-agent) v0.15.2 ("Velocity Release") di server menggunakan EasyPanel.
+Deploy [Hermes Agent](https://github.com/NousResearch/hermes-agent) by NousResearch ke **Easypanel** menggunakan Docker pada arsitektur **ARM64**.
 
-## ✨ Yang Baru di v0.15.x
+## Arsitektur
 
-| Fitur | Deskripsi |
-|-------|-----------|
-| **Swarm/Kanban** | Multi-agent orchestration via `hermes kanban swarm` |
-| **MCP Catalog** | Built-in catalog integrasi: `hermes mcp catalog` |
-| **Profile System** | Multi-profile terisolasi: `hermes profile create/use/list` |
-| **Dashboard** | Web dashboard bawaan (supervised oleh s6-overlay) |
-| **Bitwarden** | Secrets management via single bootstrap token |
-| **Promptware Defense** | Anti-brainworm prompt injection filter |
-| **Performance** | Cold-start < 1 detik, session search 4.500x lebih cepat |
+```
+┌──────────────────────────────────────────────┐
+│                  Easypanel                    │
+│  ┌──────────────────────────────────────────┐ │
+│  │         Hermes Agent Container           │ │
+│  │                                          │ │
+│  │  s6-overlay (PID 1 — process supervisor) │ │
+│  │  ├── hermes gateway (AI agent)           │ │
+│  │  ├── dashboard (:9119)                   │ │
+│  │  └── API server (:8642)                  │ │
+│  │                                          │ │
+│  │  Volume: /opt/data (persistent state)    │ │
+│  └────────────┬───────────┬─────────────────┘ │
+│          port 8642    port 9119               │
+│          (API)        (Dashboard)             │
+└──────────────────────────────────────────────┘
+```
 
-## 📁 File yang Disertakan
+## Quick Start
 
-| File | Fungsi |
-|------|--------|
-| `Dockerfile` | Single-stage Debian 13.4 + s6-overlay, multi-arch (amd64/arm64) |
-| `entrypoint.sh` | Startup wrapper script (dikelola s6-overlay sebagai PID 1) |
-| `docker-compose.yml` | Orchestration + volume persistensi |
-| `.env.example` | Template environment variables |
-
-## 🏗️ Perubahan Arsitektur dari Versi Sebelumnya
-
-> **⚠️ PENTING:** Jika Anda meng-upgrade dari versi sebelumnya (< v0.15.0), perhatikan perubahan ini:
-
-| Aspek | Lama | Baru (v0.15.2) |
-|-------|------|-----------------|
-| Base Image | `python:3.11-slim-bookworm` multi-stage | `debian:13.4` (trixie) single-stage |
-| PID 1 | Custom entrypoint.sh | **s6-overlay** `/init` |
-| Python | 3.11 | **3.13** (via uv) |
-| Runtime User | root | **`hermes`** (UID 10000) |
-| Data Volume | `/root/.hermes` | **`/opt/data`** |
-| Port | 8642 (API) + 8644 (Webhook) | **8642 saja** (consolidated) |
-| Node.js | Nodesource install | Copy dari official `node:22` image |
-
-### Migrasi Data Volume
-
-Jika sudah ada data dari versi lama:
+### 1. Clone & Configure
 
 ```bash
-# 1. Backup data lama
-docker cp hermes-agent:/root/.hermes ./hermes-backup
+git clone <repo-url> hermes-agent
+cd hermes-agent
+cp .env.example .env
+```
 
-# 2. Rebuild container baru
-docker compose down
-docker compose build --no-cache
+Edit `.env` dan isi `API_SERVER_KEY` dengan key yang kuat:
+
+```bash
+# Generate random key
+openssl rand -hex 32
+```
+
+### 2. Initial Setup (Interactive)
+
+Jalankan setup wizard untuk konfigurasi LLM provider dan messaging:
+
+```bash
+docker compose run --rm hermes setup
+```
+
+Wizard akan memandu Anda untuk:
+- Memilih LLM provider dan model
+- Memasukkan API key
+- Mengkonfigurasi messaging channel (opsional)
+
+### 3. Start Gateway
+
+```bash
 docker compose up -d
-
-# 3. Copy data ke volume baru
-docker cp ./hermes-backup/. hermes-agent:/opt/data/
 ```
 
-## 🚀 Deploy via EasyPanel
-
-### Langkah 1: Upload ke Git Repository
-
-Push semua file ini ke repository Git (GitHub, GitLab, dll):
+### 4. Verifikasi
 
 ```bash
-git init
-git add .
-git commit -m "Hermes Agent v0.15.2 deployment"
-git remote add origin https://github.com/username/hermes-agent-deploy.git
-git push -u origin main
+# Cek status container
+docker compose ps
+
+# Cek logs
+docker compose logs -f hermes
+
+# Health check
+curl http://localhost:8642/health
 ```
 
-### Langkah 2: Buat Service di EasyPanel
+Dashboard tersedia di: `http://localhost:9119`
 
-1. Buka **EasyPanel** → **Create Service** → **App**
-2. Pilih **Source**: GitHub (atau Git repository lainnya)
-3. Hubungkan ke repository yang sudah di-push
-4. **Build method**: Dockerfile
-5. Klik **Deploy**
+---
 
-### Langkah 3: Konfigurasi di EasyPanel
+## Deploy ke Easypanel
 
-#### Volumes (Wajib!)
-Tambahkan volume mount untuk menyimpan data persistensi:
-- **Mount Path**: `/opt/data`
-- **Name**: `hermes-data`
+### Metode 1: Via Git Repository
 
-> ⚠️ Path volume **berubah** dari `/root/.hermes` ke `/opt/data` di v0.15.2
+1. Push repo ini ke GitHub/GitLab
+2. Di Easypanel, buat project baru → **App** → **Docker Compose**
+3. Connect ke repository
+4. Tambahkan environment variables di Easypanel UI (dari `.env.example`)
+5. Deploy
 
-#### Ports
-- `8642` → API Server + Dashboard + Webhook (semua consolidated di satu port)
+### Metode 2: Via Docker Image Langsung
 
-#### Environment Variables
-Tambahkan minimal:
-- `TZ` = `Asia/Jakarta`
-- `HERMES_UID` = `1000` *(opsional, untuk fix ownership volume)*
-- `HERMES_GID` = `1000` *(opsional, untuk fix ownership volume)*
+1. Di Easypanel, buat project baru → **App** → **Docker**
+2. Image: `nousresearch/hermes-agent:latest`
+3. Konfigurasi:
+   - **Ports**: `8642`, `9119`
+   - **Volumes**: `/opt/data` → persistent volume
+   - **Environment Variables**: (dari `.env.example`)
+   - **Command**: `gateway run`
+   - **Restart Policy**: `unless-stopped`
+4. Deploy
 
-> Variable lainnya bisa dikonfigurasi via `hermes setup` di terminal.
+### Konfigurasi Domain di Easypanel
 
-### Langkah 4: Setup Pertama Kali
+- **Dashboard**: Assign domain ke port `9119`
+- **API Server**: Assign domain ke port `8642` (opsional)
+- Easypanel otomatis menangani SSL via Let's Encrypt
 
-Setelah container berjalan:
+---
 
-1. Buka **EasyPanel** → pilih service → tab **Terminal**
-2. Jalankan:
-   ```bash
-   hermes setup
-   ```
-3. Ikuti wizard interaktif untuk:
-   - Memilih LLM provider (OpenRouter, Anthropic, OpenAI, Nous Portal, dll)
-   - Memasukkan API key
-   - Mengkonfigurasi model
+## Environment Variables
 
-### Langkah 5: Mulai Pakai
+| Variable | Deskripsi | Default |
+|----------|-----------|---------|
+| `HERMES_DASHBOARD` | Aktifkan web dashboard | `1` |
+| `HERMES_DASHBOARD_HOST` | Bind address dashboard | `0.0.0.0` |
+| `HERMES_DASHBOARD_PORT` | Port dashboard | `9119` |
+| `HERMES_DASHBOARD_INSECURE` | Skip OAuth gate (Easypanel handles auth) | `1` |
+| `API_SERVER_ENABLED` | Aktifkan API server | `true` |
+| `API_SERVER_HOST` | Bind address API | `0.0.0.0` |
+| `API_SERVER_KEY` | API authentication key (min 8 chars) | *(wajib diisi)* |
+| `API_SERVER_CORS_ORIGINS` | Allowed CORS origins | `*` |
+| `HERMES_UID` / `PUID` | UID user di container | `10000` |
+| `HERMES_GID` / `PGID` | GID user di container | `10000` |
 
-Setelah setup selesai, Anda bisa langsung di terminal:
+Lihat `.env.example` untuk daftar lengkap LLM provider dan tool API keys.
+
+---
+
+## Persistent Data
+
+Semua state Hermes disimpan di volume `/opt/data`:
+
+| Path | Isi |
+|------|-----|
+| `.env` | API keys dan secrets |
+| `config.yaml` | Konfigurasi Hermes |
+| `SOUL.md` | Personality agent |
+| `sessions/` | Riwayat percakapan |
+| `memories/` | Persistent memory |
+| `skills/` | Installed skills |
+| `cron/` | Scheduled jobs |
+| `logs/` | Runtime logs |
+
+> ⚠️ **Jangan jalankan dua gateway container** pada data directory yang sama secara bersamaan.
+
+---
+
+## Management Commands
 
 ```bash
-# Chat langsung di terminal
-hermes
+# Interactive chat
+docker compose exec hermes hermes
 
-# Jalankan messaging gateway (Telegram, Discord, dll)
-hermes gateway setup    # Setup messaging platform
-hermes gateway          # Start gateway (supervised oleh s6-overlay)
+# Single query
+docker compose exec hermes hermes chat -q "Hello, Hermes!"
 
-# ─── Fitur Baru v0.15.x ───
+# Change model/provider
+docker compose exec hermes hermes model
 
-# Multi-agent swarm orchestration
-hermes kanban swarm     # Buat swarm topology lengkap
+# Re-run setup wizard
+docker compose exec hermes hermes setup
 
-# MCP integrations catalog
-hermes mcp catalog      # Browse & install MCP servers (n8n, Linear, GitHub, dll)
-hermes mcp add <name>   # Tambah MCP server
-hermes mcp list         # List MCP servers yang terkonfigurasi
+# Check health
+docker compose exec hermes hermes doctor
 
-# Profile management (multi-instance)
-hermes profile create <name>  # Buat profile baru
-hermes profile use <name>     # Switch ke profile
-hermes profile list           # List semua profile
+# Create additional profile
+docker compose exec hermes hermes profile create coder
+
+# Start profile gateway
+docker compose exec hermes hermes -p coder gateway start
+
+# View gateway status
+docker compose exec hermes hermes gateway status
 ```
 
-## 🌟 Konfigurasi Lanjutan (Advanced Setup)
+---
 
-Berdasarkan *Best Practices* dari dokumentasi resmi Hermes v0.15.2:
+## Troubleshooting
 
-### 1. Keamanan Terminal: Eksekusi Terisolasi (Docker-in-Docker)
-Secara bawaan, agen cerdas ini akan mengeksekusi perintah terminal **langsung di dalam** container utamanya. Untuk mencegah kerusakan jika ia tak sengaja merusak sistemnya sendiri:
-
-1. Buka konfigurasi **Volumes** di aplikasi EasyPanel Anda.
-2. Tambahkan volume tipe *Bind Mount*:
-   - Source path (Host): `/var/run/docker.sock`
-   - Destination path (Container): `/var/run/docker.sock`
-   *(Atau cukup hapus tanda pagar `#` pada baris /var/run/docker.sock di file `docker-compose.yml` sebelum mengupload ke Github)*
-3. Tambahkan di menu **Environment**: `TERMINAL_ENV=docker`
-4. Deploy ulang. Sekarang setiap perintah berbahaya akan diisolasi Hermes di container mini sementaranya!
-
-### 2. Mematikan Headless Browser Lokal (Penghemat RAM)
-Jika RAM server VPS Anda terbatas, Playwright Chromium akan memberatkan.
-Hermes mendukung delegasi via *Cloud API* ke **Browserbase**:
-1. Buat akun di browserbase.com untuk mendapatkan API.
-2. Tambahkan keys ini ke **Environment** pada EasyPanel:
-   - `BROWSERBASE_API_KEY=key_anda_di_sini`
-   - `BROWSERBASE_PROJECT_ID=id_anda_di_sini`
-Kini proses baca dokumen/web akan berjalan sangat ringan di server Anda!
-
-### 3. Bitwarden Secrets Manager (Baru di v0.15.x!)
-Ganti semua API key terpisah dengan satu bootstrap token:
-1. Buat akun di [Bitwarden Secrets Manager](https://bitwarden.com/products/secrets-manager/)
-2. Simpan semua API keys Anda di vault Bitwarden
-3. Tambahkan satu variable environment:
-   - `BWS_ACCESS_TOKEN=your-bootstrap-token`
-4. Hermes akan otomatis resolve semua secrets dari vault
-
-### 4. s6-overlay Service Management
-Karena s6-overlay mengelola services di dalam container, Anda bisa memeriksa dan mengelola via terminal:
+### Container tidak bisa start
 
 ```bash
-# Cek status gateway
-docker exec hermes-agent /command/s6-svstat /run/service/gateway-default
+# Cek logs
+docker compose logs hermes
 
-# Restart gateway
-docker exec hermes-agent /command/s6-svc -t /run/service/gateway-default
-
-# Lihat logs
-docker exec hermes-agent cat /opt/data/logs/gateway.log
+# Cek apakah port sudah digunakan
+docker compose ps
+netstat -tlnp | grep -E '8642|9119'
 ```
 
-## 🔄 Mode Container
+### Permission denied pada volume
 
-Entrypoint mendukung beberapa mode via Docker command:
-
-| Command | Fungsi |
-|---------|--------|
-| `gateway` | **(Default)** Jalankan messaging gateway (supervised oleh s6) |
-| `sleep` | Container standby, setup via terminal |
-| `setup` | Langsung jalankan setup wizard |
-| `cli` | Langsung masuk interactive CLI |
-| `shell` | Masuk bash shell |
-
-Untuk mengubah mode di EasyPanel, set **Docker Command** ke mode yang diinginkan.
-
-**Contoh — langsung jalankan gateway setelah setup selesai:**
-Ubah Docker Command dari `sleep` ke `gateway`.
-
-## 📝 Konfigurasi Lanjutan
-
-### Messaging Gateway
-
-Setelah `hermes setup`, konfigurasi messaging:
+Set UID/GID di `.env`:
 
 ```bash
-hermes gateway setup    # Wizard untuk Telegram/Discord/Slack/WhatsApp
+# Di host, cek UID/GID Anda
+id -u  # → HERMES_UID
+id -g  # → HERMES_GID
 ```
 
-### Kanban & Swarm (Baru!)
+### Dashboard tidak bisa diakses
+
+1. Pastikan `HERMES_DASHBOARD=1` di environment
+2. Pastikan port `9119` di-expose
+3. Cek logs: `docker compose logs hermes | grep dashboard`
+
+### ARM64 compatibility
+
+Image `nousresearch/hermes-agent:latest` sudah mendukung ARM64 secara native.
+Jika build gagal, pastikan Docker BuildKit aktif:
 
 ```bash
-hermes kanban init                   # Inisialisasi Kanban database
-hermes kanban boards create <slug>   # Buat board baru
-hermes kanban create "<title>"       # Buat task baru
-hermes kanban swarm                  # Setup full Swarm v1 topology
-hermes kanban dispatch               # Trigger task dispatching
+export DOCKER_BUILDKIT=1
+docker compose build
 ```
 
-### MCP Server Management (Baru!)
+---
 
-```bash
-hermes mcp catalog          # Browse curated MCP catalog
-hermes mcp add <name>       # Tambah MCP server
-hermes mcp list             # List configured servers
-hermes mcp test <name>      # Test koneksi
-hermes mcp configure <name> # Toggle tool selection
-hermes mcp serve            # Run Hermes sebagai MCP server
-```
+## Referensi
 
-### Update Hermes Agent
-
-```bash
-hermes update
-```
-
-### Troubleshooting
-
-```bash
-hermes doctor           # Diagnosa masalah
-hermes config           # Lihat konfigurasi saat ini
-hermes config check     # Cek opsi yang belum dikonfigurasi
-```
-
-### Lokasi File Konfigurasi (dalam Container)
-
-```
-/opt/data/
-├── config.yaml          # Pengaturan utama
-├── .env                 # API keys & secrets
-├── auth.json            # OAuth credentials
-├── SOUL.md              # Personality agent
-├── memories/            # Memory persistensi
-├── skills/              # Skills agent
-├── cron/                # Scheduled jobs
-├── sessions/            # Gateway sessions
-├── profiles/            # Multi-profile data (BARU!)
-├── logs/                # Log files
-└── hooks/               # Event hooks
-```
-
-Semua file di atas tersimpan di volume `hermes-data` (`/opt/data`), sehingga aman dari rebuild container.
-
-## ⚠️ Catatan Penting
-
-- **Multi-arch**: Dockerfile ini mendukung **amd64** dan **arm64** secara otomatis via BuildKit `TARGETARCH`. Tidak perlu set `platform` manual.
-- **Non-root**: Container berjalan sebagai user `hermes` (UID 10000). Gunakan `HERMES_UID` / `HERMES_GID` jika perlu menyesuaikan ownership volume.
-- **s6-overlay**: PID 1 dikelola oleh s6-overlay, bukan shell script. Ini menjamin zombie process reaping, auto-restart, dan proper signal handling.
-- **Build time**: Build pertama memerlukan waktu ~10-15 menit karena menginstall banyak dependencies.
-- **Playwright**: Browser Chromium diinstall untuk fitur web browsing agent. Jika tidak diperlukan, baris terkait bisa dihapus dari Dockerfile untuk memperkecil image.
-- **Resource**: Disarankan minimal **2 vCPU dan 4 GB RAM** untuk production, terutama jika menggunakan browser automation.
+- [Hermes Agent GitHub](https://github.com/NousResearch/hermes-agent)
+- [Hermes Agent Docker Guide](https://hermes.nousresearch.com/user-guide/docker)
+- [Easypanel Documentation](https://easypanel.io/docs)

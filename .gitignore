@@ -1,17 +1,51 @@
-# Environment variables (contains secrets)
+# =============================================================================
+# Hermes Agent — .gitignore
+# =============================================================================
+
+# --- Secrets & Environment ---
 .env
+.env.local
+.env.*.local
+!.env.example
 
-# OS files
-.DS_Store
-Thumbs.db
-desktop.ini
+# --- Hermes persistent data ---
+hermes-data/
+data/
 
-# IDE
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.pip-cache/
+.uv-cache/
+
+# --- Node.js ---
+node_modules/
+
+# --- Docker ---
+.hermes-docker/
+
+# --- IDE ---
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# Logs
+# --- OS ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- Logs ---
+logs/
 *.log
+
+# --- Temp ---
+tmp/
+temp/

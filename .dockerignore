@@ -1,24 +1,49 @@
-# Git
+# =============================================================================
+# Hermes Agent — .dockerignore
+# =============================================================================
+# Keep the build context small. The Dockerfile extends the official image
+# so almost nothing from this repo needs to be sent to the daemon.
+
+# --- Git ---
 .git
 .gitignore
 
-# IDE
-.vscode
-.idea
-*.swp
-*.swo
+# --- Persistent data (never send to build) ---
+hermes-data/
+data/
 
-# OS
+# --- Secrets ---
+.env
+.env.local
+.env.*.local
+
+# --- Dependencies ---
+node_modules/
+**/node_modules
+.venv/
+**/.venv
+.pip-cache/
+.uv-cache/
+
+# --- Python cache ---
+__pycache__/
+**/__pycache__
+*.py[cod]
+
+# --- IDE ---
+.vscode/
+.idea/
+
+# --- OS ---
 .DS_Store
 Thumbs.db
 
-# Docker
-docker-compose*.yml
-.env
-.env.*
-!.env.example
+# --- Logs & temp ---
+logs/
+tmp/
+temp/
 
-# Docs (not needed in image)
-*.md
-!README.md
+# --- Documentation (not needed in image) ---
+README.md
 LICENSE
+*.md
